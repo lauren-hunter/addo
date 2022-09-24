@@ -1,0 +1,415 @@
+---
+title: "ADDO Record Analysis"
+author: "Lauren Hunter"
+date: "9/23/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Library packages
+library("tidyverse")
+library("lubridate")
+
+# Load shopkeeper record-keeping data from 20 shops
+pink_log <- read_csv("ADDO_record_23Sept2022.csv")
+
+```
+
+```{r describe}
+
+# Data frame 1: Sum distribution by study arm and week 
+pink_weekly <- pink_log %>% 
+  group_by(study.arm, epi.week) %>% 
+  summarize(hivst = sum(pink.hivst, na.rm = TRUE),
+            condoms = sum(condoms, na.rm = TRUE), 
+            oc = sum(oc, na.rm = TRUE),
+            ec = sum(ec, na.rm = TRUE),
+            preg = sum(preg.test, na.rm = TRUE), 
+            srh = condoms + oc + ec, 
+            hiv.ref = sum(hiv.ref, na.rm = TRUE),
+            fp.ref = sum(fp.ref, na.rm = TRUE),
+            preg.ref = sum(preg.ref, na.rm = TRUE),
+            ref = hiv.ref + fp.ref + preg.ref)
+
+## Add cumulative counts over time
+pink_weekly <- arrange(pink_weekly, pink_weekly$study.arm, pink_weekly$epi.week) # Arrange by study arm and then week
+pink_weekly$c.hivst <- ave(pink_weekly$hivst, pink_weekly$study.arm, FUN = cumsum)
+pink_weekly$c.condoms <- ave(pink_weekly$condoms, pink_weekly$study.arm, FUN = cumsum)
+pink_weekly$c.oc <- ave(pink_weekly$oc, pink_weekly$study.arm, FUN = cumsum)
+pink_weekly$c.ec <- ave(pink_weekly$ec, pink_weekly$study.arm, FUN = cumsum)
+pink_weekly$c.preg <- ave(pink_weekly$preg, pink_weekly$study.arm, FUN = cumsum)
+pink_weekly$c.srh <- ave(pink_weekly$srh, pink_weekly$study.arm, FUN = cumsum)
+pink_weekly$c.hiv.ref <- ave(pink_weekly$hiv.ref, pink_weekly$study.arm, FUN = cumsum)
+pink_weekly$c.fp.ref <- ave(pink_weekly$fp.ref, pink_weekly$study.arm, FUN = cumsum)
+pink_weekly$c.preg.ref <- ave(pink_weekly$preg.ref, pink_weekly$study.arm, FUN = cumsum)
+pink_weekly$c.ref <- ave(pink_weekly$ref, pink_weekly$study.arm, FUN = cumsum)
+
+
+# Data frame 2: Sum distribution by study arm only (total/cumulative)
+pink_total <- pink_log %>% 
+  group_by(study.arm) %>%
+  summarize(c.hivst = sum(pink.hivst, na.rm = TRUE),
+            c.condoms = sum(condoms, na.rm = TRUE),
+            c.oc = sum(oc, na.rm = TRUE),
+            c.ec = sum(ec, na.rm = TRUE),
+            c.preg = sum(preg.test, na.rm = TRUE),
+            c.srh = c.condoms + c.oc + c.ec, 
+            c.hiv.ref = sum(hiv.ref, na.rm = TRUE), 
+            c.fp.ref = sum(fp.ref, na.rm = TRUE),
+            c.preg.ref = sum(preg.ref, na.rm = TRUE),
+            c.ref = c.hiv.ref + c.fp.ref + c.preg.ref)
+
+
+# Data frame 3: Sum distribution by shop ID and week 
+pink_shop_weekly <- pink_log %>% 
+  group_by(shop.id, epi.week) %>% 
+  summarize(hivst = sum(pink.hivst, na.rm = TRUE),
+            condoms = sum(condoms, na.rm = TRUE),
+            oc = sum(oc, na.rm = TRUE),
+            ec = sum(ec, na.rm = TRUE),
+            preg = sum(preg.test, na.rm = TRUE), 
+            srh = condoms + oc + ec,
+            hiv.ref = sum(hiv.ref, na.rm = TRUE),
+            fp.ref = sum(fp.ref, na.rm = TRUE),
+            preg.ref = sum(preg.ref, na.rm = TRUE),
+            ref = hiv.ref + fp.ref + preg.ref)
+
+## Add cumulative counts over time
+pink_shop_weekly <- arrange(pink_shop_weekly, pink_shop_weekly$shop.id, pink_shop_weekly$epi.week) # Arrange by study arm and then week
+pink_shop_weekly$c.hivst <- ave(pink_shop_weekly$hivst, pink_shop_weekly$shop.id, FUN = cumsum)
+pink_shop_weekly$c.condoms <- ave(pink_shop_weekly$condoms, pink_shop_weekly$shop.id, FUN = cumsum)
+pink_shop_weekly$c.oc <- ave(pink_shop_weekly$oc, pink_shop_weekly$shop.id, FUN = cumsum)
+pink_shop_weekly$c.ec <- ave(pink_shop_weekly$ec, pink_shop_weekly$shop.id, FUN = cumsum)
+pink_shop_weekly$c.preg <- ave(pink_shop_weekly$preg, pink_shop_weekly$shop.id, FUN = cumsum)
+pink_shop_weekly$c.srh <- ave(pink_shop_weekly$srh, pink_shop_weekly$shop.id, FUN = cumsum)
+pink_shop_weekly$c.hiv.ref <- ave(pink_shop_weekly$hiv.ref, pink_shop_weekly$shop.id, FUN = cumsum)
+pink_shop_weekly$c.fp.ref <- ave(pink_shop_weekly$fp.ref, pink_shop_weekly$shop.id, FUN = cumsum)
+pink_shop_weekly$c.preg.ref <- ave(pink_shop_weekly$preg.ref, pink_shop_weekly$shop.id, FUN = cumsum)
+pink_shop_weekly$c.ref <- ave(pink_shop_weekly$ref, pink_shop_weekly$shop.id, FUN = cumsum)
+
+## Merge back study arm variable
+study_arm <- distinct(pink_log[,c(1,4)])
+pink_shop_weekly <- merge(pink_shop_weekly, study_arm)
+
+
+# Data frame 4: Sum distribution by shop ID (total/cumulative)
+pink_shop_total <- pink_log %>% 
+  group_by(shop.id) %>%
+  summarize(c.hivst = sum(pink.hivst, na.rm = TRUE),
+            c.condoms = sum(condoms, na.rm = TRUE),
+            c.oc = sum(oc, na.rm = TRUE),
+            c.ec = sum(ec, na.rm = TRUE),
+            c.preg = sum(preg.test, na.rm = TRUE),
+            c.srh = c.condoms + c.oc + c.ec, 
+            c.hiv.ref = sum(hiv.ref, na.rm = TRUE), 
+            c.fp.ref = sum(fp.ref, na.rm = TRUE),
+            c.preg.ref = sum(preg.ref, na.rm = TRUE),
+            c.ref = c.hiv.ref + c.fp.ref + c.preg.ref)
+
+## Merge back study arm variable
+pink_shop_total <- merge(pink_shop_total, study_arm)
+
+```
+
+```{r stat}
+
+# Calculate mean (SD) and median (Q1, Q3) product/referral provision per shop by study arm
+
+desc.arm <- pink_shop_total %>%
+  group_by(study.arm) %>%
+  summarise(
+    mean.hivst = mean(c.hivst, na.rm = TRUE),
+    sd.hivst = sd(c.hivst, na.rm = TRUE),
+    med.hivst = median(c.hivst, na.rm = TRUE),  
+    q1.hivst = quantile(c.hivst, prob = .25, na.rm = TRUE),
+    q3.hivst = quantile(c.hivst, prob = .75, na.rm = TRUE),
+    
+    mean.srh = mean(c.srh, na.rm = TRUE),
+    sd.srh = sd(c.srh, na.rm = TRUE),
+    med.srh = median(c.srh, na.rm = TRUE),
+    q1.srh = quantile(c.srh, prob = .25, na.rm = TRUE),
+    q3.srh = quantile(c.srh, prob = .75, na.rm = TRUE),
+    
+    mean.condoms = mean(c.condoms, na.rm = TRUE),
+    sd.condoms = sd(c.condoms, na.rm = TRUE),
+    med.condoms = median(c.condoms, na.rm = TRUE),
+    q1.condoms = quantile(c.condoms, prob = .25, na.rm = TRUE),
+    q3.condoms = quantile(c.condoms, prob = .75, na.rm = TRUE),
+    
+    mean.oc = mean(c.oc, na.rm = TRUE),
+    sd.oc = sd(c.oc, na.rm = TRUE),
+    med.oc = median(c.oc, na.rm = TRUE),
+    q1.oc = quantile(c.oc, prob = .25, na.rm = TRUE),
+    q3.oc = quantile(c.oc, prob = .75, na.rm = TRUE),
+    
+    mean.ec = mean(c.ec, na.rm = TRUE),
+    sd.ec = sd(c.ec, na.rm = TRUE),
+    med.ec = median(c.ec, na.rm = TRUE),
+    q1.ec = quantile(c.ec, prob = .25, na.rm = TRUE),
+    q3.ec = quantile(c.ec, prob = .75, na.rm = TRUE),
+    
+    mean.preg = mean(c.preg, na.rm = TRUE),
+    sd.preg = sd(c.preg, na.rm = TRUE),
+    med.preg = median(c.preg, na.rm = TRUE), 
+    q1.preg = quantile(c.preg, prob = .25, na.rm = TRUE),
+    q3.preg = quantile(c.preg, prob = .75, na.rm = TRUE),
+    
+    mean.hiv.ref = mean(c.hiv.ref, na.rm = TRUE),
+    sd.hiv.ref = sd(c.hiv.ref, na.rm = TRUE),
+    med.hiv.ref = median(c.hiv.ref, na.rm = TRUE), 
+    q1.hiv.ref = quantile(c.hiv.ref, prob = .25, na.rm = TRUE),
+    q3.hiv.rev = quantile(c.hiv.ref, prob = .75, na.rm = TRUE),
+    
+    mean.fp.ref = mean(c.fp.ref, na.rm = TRUE),
+    sd.fp.ref = sd(c.fp.ref, na.rm = TRUE),
+    med.fp.ref = median(c.fp.ref, na.rm = TRUE), 
+    q1.fp.ref = quantile(c.fp.ref, prob = .25, na.rm = TRUE),
+    q3.fp.ref = quantile(c.fp.ref, prob = .75, na.rm = TRUE),
+    
+    mean.preg.ref = mean(c.preg.ref, na.rm = TRUE),
+    sd.preg.ref = sd(c.preg.ref, na.rm = TRUE),
+    med.preg.ref = median(c.preg.ref, na.rm = TRUE), 
+    q1.preg.ref = quantile(c.preg.ref, prob = .25, na.rm = TRUE),
+    q3.preg.ref = quantile(c.preg.ref, prob = .75, na.rm = TRUE),
+    
+    mean.ref = mean(c.ref, na.rm = TRUE),
+    sd.ref = sd(c.ref, na.rm = TRUE),
+    med.ref = median(c.ref, na.rm = TRUE), 
+    q1.ref = quantile(c.ref, prob = .25, na.rm = TRUE),
+    q3.ref = quantile(c.ref, prob = .75, na.rm = TRUE))
+
+desc.arm.test <- data.frame(t(desc.arm[-1])) # Rotate data frame
+colnames(desc.arm.test) <- c("comparison", "intervention")
+desc.arm.test$name <- rownames(desc.arm.test)
+
+
+# Statistical tests
+
+## T-tests for means
+t.pvalue <- data.frame(t.pvalue = sapply(pink_shop_total[, 2:11], function(i) t.test(i ~ pink_shop_total$study.arm)$p.value))
+t.pvalue$name <- rownames(t.pvalue)
+t.pvalue$name <- paste("mean.", substring(t.pvalue$name, 3), sep = "") # Match for merge with desc.arm.test
+desc.arm.test.mean <- merge(desc.arm.test, t.pvalue) # Merge p-values
+
+## Kruskal Wallis tests for medians
+k.pvalue <- data.frame(k.pvalue = sapply(pink_shop_total[, 2:11], function(i) kruskal.test(i ~ pink_shop_total$study.arm)$p.value))
+k.pvalue$name <- rownames(k.pvalue)
+k.pvalue$name <- paste("med.", substring(k.pvalue$name, 3), sep = "") # Match for merge with desc.arm.test
+desc.arm.test.med <- merge(desc.arm.test, k.pvalue) # Merge p-values
+
+```
+
+```{r supp_graph}
+
+# [Supplementary] Graph total product and referral provision by study arm
+
+## Change long to wide
+bar_plot <- tidyr::gather(pink_total, key = type, value = counts, -study.arm) 
+
+## Remove summed contraceptive product and referral variables (c.srh & c.ref)
+bar_plot <- bar_plot[which (bar_plot$type != "c.srh" & bar_plot$type != "c.ref"), ]
+
+## Order and label variables
+bar_plot$type <- factor(bar_plot$type, 
+                    levels = c("c.hivst", "c.condoms", "c.oc", "c.ec", "c.preg", "c.hiv.ref", "c.fp.ref", "c.preg.ref"),
+                    labels = c("HIV self-test kits", "Condoms", "Oral contraception", "Emergency contraception",  "Pregnancy tests", "HIV referrals", "Family planning referrals", "Pregnancy referrals"))
+# table(bar_plot$type)
+
+bar_plot$study.arm <- factor(bar_plot$study.arm, 
+                    levels = c("Comparison", "Intervention"),
+                    labels = c("10 comparison shops", "10 intervention shops"))
+# table(bar_plot$study.arm)
+
+## Plot
+cumulative.bar <- ggplot(bar_plot, aes(x = type, y = counts, fill = study.arm)) +
+  geom_bar(stat = "identity", position = position_dodge(0.9)) + 
+  scale_x_discrete() +
+  scale_fill_manual(values = c('grey70', 'black'), name = "") + 
+  ylab("Cumulative count") + 
+  xlab("") + 
+  geom_text(aes(label = counts), position = position_dodge(width=0.9), vjust = -0.5, size = 3) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+        legend.title = element_blank(),
+        legend.position = c(0.85, 0.9))
+cumulative.bar
+
+
+# [Supplementary] Graph cumulative SRH product distribution over time by study arm
+
+srh.prod <- ggplot(pink_weekly, aes(x = epi.week)) +
+  geom_point(aes(y = c.hivst, colour = "HIV self-test kits")) +
+  geom_point(aes(y = c.condoms, colour = "Condoms", x = (epi.week+0.2))) + # Stagger x-axis value to avoid overlapping points
+  geom_point(aes(y = c.ec, colour = "Emergency contraception", x = (epi.week+0.4))) + 
+  geom_point(aes(y = c.preg, colour = "Pregnancy tests", x = (epi.week+0.6))) +  
+  geom_point(aes(y = c.oc, colour = "Oral contraception", x = (epi.week+0.8))) +
+  facet_wrap(~ study.arm) + 
+  scale_color_manual(labels = c("HIV self-test kits", "Condoms", "Oral contraception", "Emergency contraception", "Pregnancy tests"),
+                     values = c("HIV self-test kits" = "turquoise", "Condoms" = "royalblue2", "Oral contraception" = "seagreen", "Emergency contraception" = "maroon3", "Pregnancy tests" = "orange")) +
+  xlab("Date (Aug. 23 - Dec. 31)                                                       Date (Aug. 23 - Dec. 31)") +
+  ylab("Cumulative no. products distributed") + 
+  geom_hline(yintercept = 0) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(),
+        axis.title = element_text(size = 9),
+        axis.text.x = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        plot.title = element_text(hjust = 0.5),
+        legend.title = element_blank(),
+        legend.position = "top",
+        legend.spacing.x = unit(0.05, 'cm'),
+        legend.key = element_blank())
+srh.prod
+
+
+# [Supplementary] Graph cumulative contraceptive distribution over time by shop
+
+## Add * to Intervention 8 to indicate rescaling
+pink_shop_weekly$shop.id.2 <- factor(pink_shop_weekly$shop.id, 
+                    levels = c("Comparison 1", "Comparison 2", "Comparison 3", "Comparison 4", "Comparison 5", "Comparison 6", "Comparison 7", "Comparison 8", "Comparison 9", "Comparison 10", "Intervention 1", "Intervention 2", "Intervention 3", "Intervention 4", "Intervention 5", "Intervention 6", "Intervention 7", "Intervention 8", "Intervention 9", "Intervention 10"),
+                    labels = c("Comparison 1", "Comparison 2", "Comparison 3", "Comparison 4", "Comparison 5", "Comparison 6", "Comparison 7", "Comparison 8", "Comparison 9", "Comparison 10", "Intervention 1", "Intervention 2", "Intervention 3", "Intervention 4", "Intervention 5", "Intervention 6", "Intervention 7", "Intervention 8*", "Intervention 9", "Intervention 10"))
+
+## Set higher Y-axis maximum for Intervention 8
+pink_shop_weekly$y_max <- NA
+pink_shop_weekly$y_max[pink_shop_weekly$shop.id.2 != "Intervention 8"] <- 450
+pink_shop_weekly$y_max[pink_shop_weekly$shop.id.2 == "Intervention 8"] <- 3000
+
+cont.shop.cum <- ggplot(pink_shop_weekly, aes(x = epi.week)) +
+  geom_point(aes(y = c.ec, colour = "Emergency contraception"), stroke = 0) + 
+  geom_point(aes(y = c.condoms, colour = "Condoms", x = (epi.week+0.33)), stroke = 0) +
+  geom_point(aes(y = c.oc, colour = "Oral contraception", x = (epi.week+0.66)), stroke = 0) +
+  facet_wrap(~ shop.id.2, scales = "free_y") +
+  geom_blank(aes(y = y_max))+ 
+  scale_color_manual(labels = c("Condoms", "Oral contraception", "Emergency contraception"), 
+                     values = c( "Condoms" = "royalblue2", "Oral contraception" = "seagreen", "Emergency contraception" = "maroon3")) +
+  xlab("Date (Aug. 23 - Dec. 31)") +
+  ylab("Cumulative no. products distributed") + 
+  geom_hline(yintercept = 0) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(),
+        axis.title = element_text(size = 9), 
+        axis.text.x = element_blank(), 
+        axis.ticks.x = element_blank(), 
+        plot.title = element_text(hjust = 0.5),
+        legend.title = element_blank(),
+        legend.position = "top",
+        legend.margin = margin(0,0,0,0),
+        legend.box.margin = margin(-4,-4,-4,-4),
+        legend.key = element_blank())
+cont.shop.cum
+
+```
+
+```{r sup_stat}
+
+# [Supplementary] Rerun analyses excluding outlying Intervention Shop 8
+
+pink_shop_drop <- pink_log[ which(pink_log$shop.id != "Intervention 8"), ]
+
+pink_shop_total_drop <- pink_shop_total[ which(pink_shop_total$shop.id != "Intervention 8"), ]
+
+## Sum distribution by study arm (total/cumulative)
+pink_total_drop <- pink_shop_drop %>% 
+  group_by(study.arm) %>%
+  summarize(c.hivst = sum(pink.hivst, na.rm = TRUE),
+            c.condoms = sum(condoms, na.rm = TRUE),
+            c.oc = sum(oc, na.rm = TRUE),
+            c.ec = sum(ec, na.rm = TRUE),
+            c.preg = sum(preg.test, na.rm = TRUE),
+            c.srh = c.condoms+c.oc+c.ec, 
+            c.hiv.ref = sum(hiv.ref, na.rm = TRUE), 
+            c.fp.ref = sum(fp.ref, na.rm = TRUE),
+            c.preg.ref = sum(preg.ref, na.rm = TRUE),
+            c.ref = c.hiv.ref + c.fp.ref + c.preg.ref)
+
+## Calculate mean (SD) and median (Q1, Q3) product/referral provision per shop by study arm
+desc.arm.drop <- pink_shop_total_drop %>%
+  group_by(study.arm) %>%
+  summarise(
+    mean.hivst = mean(c.hivst, na.rm = TRUE),
+    sd.hivst = sd(c.hivst, na.rm = TRUE),
+    med.hivst = median(c.hivst, na.rm = TRUE),  
+    q1.hivst = quantile(c.hivst, prob = .25, na.rm = TRUE),
+    q3.hivst = quantile(c.hivst, prob = .75, na.rm = TRUE),
+    
+    mean.srh = mean(c.srh, na.rm = TRUE),
+    sd.srh = sd(c.srh, na.rm = TRUE),
+    med.srh = median(c.srh, na.rm = TRUE),
+    q1.srh = quantile(c.srh, prob = .25, na.rm = TRUE),
+    q3.srh = quantile(c.srh, prob = .75, na.rm = TRUE),
+    
+    mean.condoms = mean(c.condoms, na.rm = TRUE),
+    sd.condoms = sd(c.condoms, na.rm = TRUE),
+    med.condoms = median(c.condoms, na.rm = TRUE),
+    q1.condoms = quantile(c.condoms, prob = .25, na.rm = TRUE),
+    q3.condoms = quantile(c.condoms, prob = .75, na.rm = TRUE),
+    
+    mean.oc = mean(c.oc, na.rm = TRUE),
+    sd.oc = sd(c.oc, na.rm = TRUE),
+    med.oc = median(c.oc, na.rm = TRUE),
+    q1.oc = quantile(c.oc, prob = .25, na.rm = TRUE),
+    q3.oc = quantile(c.oc, prob = .75, na.rm = TRUE),
+    
+    mean.ec = mean(c.ec, na.rm = TRUE),
+    sd.ec = sd(c.ec, na.rm = TRUE),
+    med.ec = median(c.ec, na.rm = TRUE),
+    q1.ec = quantile(c.ec, prob = .25, na.rm = TRUE),
+    q3.ec = quantile(c.ec, prob = .75, na.rm = TRUE),
+    
+    mean.preg = mean(c.preg, na.rm = TRUE),
+    sd.preg = sd(c.preg, na.rm = TRUE),
+    med.preg = median(c.preg, na.rm = TRUE), 
+    q1.preg = quantile(c.preg, prob = .25, na.rm = TRUE),
+    q3.preg = quantile(c.preg, prob = .75, na.rm = TRUE),
+    
+    mean.hiv.ref = mean(c.hiv.ref, na.rm = TRUE),
+    sd.hiv.ref = sd(c.hiv.ref, na.rm = TRUE),
+    med.hiv.ref = median(c.hiv.ref, na.rm = TRUE), 
+    q1.hiv.ref = quantile(c.hiv.ref, prob = .25, na.rm = TRUE),
+    q3.hiv.rev = quantile(c.hiv.ref, prob = .75, na.rm = TRUE),
+    
+    mean.fp.ref = mean(c.fp.ref, na.rm = TRUE),
+    sd.fp.ref = sd(c.fp.ref, na.rm = TRUE),
+    med.fp.ref = median(c.fp.ref, na.rm = TRUE), 
+    q1.fp.ref = quantile(c.fp.ref, prob = .25, na.rm = TRUE),
+    q3.fp.ref = quantile(c.fp.ref, prob = .75, na.rm = TRUE),
+    
+    mean.preg.ref = mean(c.preg.ref, na.rm = TRUE),
+    sd.preg.ref = sd(c.preg.ref, na.rm = TRUE),
+    med.preg.ref = median(c.preg.ref, na.rm = TRUE), 
+    q1.preg.ref = quantile(c.preg.ref, prob = .25, na.rm = TRUE),
+    q3.preg.ref = quantile(c.preg.ref, prob = .75, na.rm = TRUE),
+    
+    mean.ref = mean(c.ref, na.rm = TRUE),
+    sd.ref = sd(c.ref, na.rm = TRUE),
+    med.ref = median(c.ref, na.rm = TRUE), 
+    q1.ref = quantile(c.ref, prob = .25, na.rm = TRUE),
+    q3.ref = quantile(c.ref, prob = .75, na.rm = TRUE))
+
+desc.arm.drop.test <- data.frame(t(desc.arm.drop[-1])) 
+colnames(desc.arm.drop.test) <- c("comparison", "intervention")
+desc.arm.drop.test$name <- rownames(desc.arm.drop.test)
+
+
+# Statistical tests
+
+## T-tests for means
+t.pvalue <- data.frame(t.pvalue = sapply(pink_shop_total_drop[, 2:11], function(i) t.test(i ~ pink_shop_total_drop$study.arm)$p.value))
+t.pvalue$name <- rownames(t.pvalue)
+t.pvalue$name <- paste("mean.", substring(t.pvalue$name, 3), sep = "") 
+desc.arm.drop.test.mean <- merge(desc.arm.drop.test, t.pvalue) 
+
+## Kruskal Wallis tests for medians
+k.pvalue <- data.frame(k.pvalue = sapply(pink_shop_total_drop[, 2:11], function(i) kruskal.test(i ~ pink_shop_total_drop$study.arm)$p.value))
+k.pvalue$name <- rownames(k.pvalue)
+k.pvalue$name <- paste("med.", substring(k.pvalue$name, 3), sep = "") 
+desc.arm.drop.test.med <- merge(desc.arm.drop.test, k.pvalue) 
+
+```
