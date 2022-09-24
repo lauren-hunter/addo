@@ -1,0 +1,352 @@
+---
+title: "ADDO Observation Analysis"
+author: "Lauren Hunter"
+date: "9/23/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Library packages
+library("tidyverse")
+library("lme4")
+library("lubridate")
+library("table1")
+
+# Load observation data from 20 shops
+tl_20 <- read_csv("ADDO_observation_23Sept2022.csv")
+
+```
+
+```{r describe}
+
+# Descriptives about observations 
+
+## Number of obs per study arm and timepoint
+table(tl_20$arm, tl_20$time)
+table(tl_20$arm, tl_20$time2)
+table1(~as.factor(time2) + as.factor(time) | arm, tl_20)
+table(tl_20$time)
+
+## Range of observations per shop by arm
+table1(~as.factor(shop.id) | arm*as.factor(time), tl_20)
+table1(~as.factor(shop.id) | arm*as.factor(time2), tl_20)
+
+
+# Descriptives about patronage by time point and study arm
+
+## Three time points
+diff <- tl_20 %>%
+        group_by(time, arm) %>%
+        summarise(
+           tot.num.agyw = sum(num.agyw, na.rm = TRUE),
+           mean.num.agyw = mean(num.agyw, na.rm = TRUE),
+           sd.num.agyw = sd(num.agyw, na.rm = TRUE),
+           mean.num.nonagyw = mean(num.nonagyw, na.rm = TRUE),
+           sd.num.nonagyw = sd(num.nonagyw, na.rm = TRUE),
+           mean.agyw.prop = mean(agyw.prop, na.rm = TRUE), 
+           sd.agyw.prop = sd(agyw.prop, na.rm = TRUE)
+  )
+
+## Two time points (midline/endline combined)
+diff2 <- tl_20 %>%
+        group_by(time2, arm) %>%
+        summarise(
+           tot.num.agyw = sum(num.agyw, na.rm = TRUE),
+           mean.num.agyw = mean(num.agyw, na.rm = TRUE),
+           sd.num.agyw = sd(num.agyw, na.rm = TRUE),
+           mean.num.nonagyw = mean(num.nonagyw, na.rm = TRUE),
+           sd.num.nonagyw = sd(num.nonagyw, na.rm = TRUE),
+           mean.agyw.prop = mean(agyw.prop, na.rm = TRUE), 
+           sd.agyw.prop = sd(agyw.prop, na.rm = TRUE)
+  )
+
+```
+
+```{r regress}
+
+# Negative binomial difference-in-differences model with shop.id as random intercept, adjustment for ward, and log(duration) as offset
+
+## Three time points
+
+### AGYW
+nb1a.offset <- glmer.nb(num.agyw ~ as.factor(arm)*as.factor(time) + ward + (1|shop.id) + offset(log(duration)), 
+                 data = tl_20)
+nb1a.offset.fit <- round(exp(cbind(fixef(nb1a.offset), 
+                     confint(nb1a.offset, parm = "beta_", method = "Wald"))), digits=2)
+colnames(nb1a.offset.fit)<-c("IRR","95%LL","95%UL")
+nb1a.offset.fit 
+
+### Non-AGYW
+nb1a.offset <- glmer.nb(num.nonagyw ~ as.factor(arm)*as.factor(time) + ward + (1|shop.id) + offset(log(duration)), 
+                 data = tl_20)
+nb1a.offset.fit <- round(exp(cbind(fixef(nb1a.offset), 
+                     confint(nb1a.offset, parm = "beta_", method = "Wald"))), digits=2)
+colnames(nb1a.offset.fit)<-c("IRR","95%LL","95%UL")
+nb1a.offset.fit 
+
+
+## Two time points (midline/endline combined)
+
+### AGYW
+nb1a.offset <- glmer.nb(num.agyw ~ as.factor(arm)*as.factor(time2) + ward + (1|shop.id) + offset(log(duration)), 
+                 data = tl_20)
+nb1a.offset.fit <- round(exp(cbind(fixef(nb1a.offset), 
+                     confint(nb1a.offset, parm = "beta_", method = "Wald"))), digits=2)
+colnames(nb1a.offset.fit)<-c("IRR","95%LL","95%UL")
+nb1a.offset.fit 
+
+### Non-AGYW
+nb1a.offset <- glmer.nb(num.nonagyw ~ as.factor(arm)*as.factor(time2) + ward + (1|shop.id) + offset(log(duration)), # Added log(duration) as offset
+                 data = tl_20)
+nb1a.offset.fit <- round(exp(cbind(fixef(nb1a.offset), 
+                     confint(nb1a.offset, parm = "beta_", method = "Wald"))), digits=2)
+colnames(nb1a.offset.fit)<-c("IRR","95%LL","95%UL")
+nb1a.offset.fit 
+
+```
+
+
+```{r graph}
+
+# Difference-in-differences plot with 3 time points
+
+diff$time <- factor(diff$time, 
+                    levels=c(0, 1, 2),
+                    labels=c("Baseline", "Midline", "Endline"))
+
+diff$arm <- factor(diff$arm, 
+                   levels=c("Intervention (Queen Club)", "Comparison"),
+                   labels=c("Intervention", "Comparison"))
+
+## AGYW
+agyw.mean <- ggplot(diff, aes(x = time, y = mean.num.agyw)) +
+  geom_line(data = diff, aes(linetype = arm, group = interaction(arm)), size = 1.2) +
+  xlab("") +
+  ylab("Mean no. AGYW \n per observation") + 
+  scale_x_discrete() +
+  geom_point(size = 2) +
+geom_text(aes(label = sprintf("%0.1f", round(mean.num.agyw, 1))),
+           vjust = 0, nudge_y = -0.3, hjust = 0.07,
+           check_overlap = TRUE, size = 3,
+           show.legend = FALSE) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        plot.title = element_text(hjust = 0.5),
+        legend.title = element_blank(), 
+        legend.position = "top",
+        legend.key = element_rect(fill = "white"))
+agyw.mean
+
+## Non-AGYW
+non.agyw.mean <- ggplot(diff, aes(x = time, y = mean.num.nonagyw)) +
+  geom_line(data = diff, aes(linetype = arm, group = interaction(arm)), size = 1.2) +
+  xlab("") +
+  ylab("Mean no. non-AGYW \n per observation") + 
+  scale_x_discrete() +
+  scale_y_continuous(breaks = c(0, 2, 4, 6, 8, 10, 12), limits = c(0, 10)) + 
+  geom_point(size = 2) +
+  geom_text(aes(label = sprintf("%0.1f", round(mean.num.nonagyw, 1))),
+             vjust = 0, nudge_y = -0.7,
+             check_overlap = TRUE, size = 3,
+             show.legend = FALSE) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "none")
+non.agyw.mean
+
+## Proportion AGYW
+
+##Excluding surveys with 0 customers and shops with 0 surveys that had customers
+agyw.prop <- ggplot(diff, aes(x = time, y = mean.agyw.prop)) +
+  geom_line(data = diff, aes(linetype = arm, group = interaction(arm)), size = 1.2) +
+  xlab("Time point") +
+  ylab("Mean proportion AGYW \n per observation") +
+  scale_x_discrete() +
+  geom_point(size = 2) +
+  ylim(0, 0.5) +
+  geom_text(aes(label = sprintf("%0.2f", round(mean.agyw.prop, 2))),
+            vjust = 0, nudge_y = -0.033, hjust = 0.07,
+            check_overlap = TRUE, size = 3,
+            show.legend = FALSE) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"), 
+        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 0, l = 0)),
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "none")
+agyw.prop
+
+```
+
+```{r supp_graph}
+
+# [Supplementary] Graph observation date/time by shop arm
+
+##Jitter hours + minutes variable to avoid overlap
+set.seed(23)
+tl_20$hour.min.st.j <- jitter(tl_20$hour.min.st, 40)
+
+##Save baseline, midline, and endline midpoints
+base.mid <- mean(range(ymd("2019-07-23"), ymd("2019-08-18")))
+mid.mid <- mean(range(ymd("2019-10-07"), ymd("2019-11-05")))
+end.mid <- mean(range(ymd("2019-11-21"), ymd("2019-12-23")))
+
+##Graph using pre-jittered variable
+obs.dates.arm <- ggplot(tl_20, aes(x = date, y = hour.min.st.j)) +
+  geom_rect(aes(xmin = ymd("2019-07-23"), xmax = ymd("2019-08-18"), ymin = -Inf, ymax = Inf), fill = "mistyrose", alpha = 0.03) +
+    geom_text(
+         aes(x = base.mid, y = 6.3, label = "Baseline"),
+         size = 3, vjust = 0, hjust = 0.5, check_overlap = TRUE) +
+  geom_rect(aes(xmin = ymd("2019-10-07"), xmax = ymd("2019-11-05"), ymin = -Inf, ymax = Inf), fill = "mistyrose", alpha = 0.03) +
+      geom_text(
+         aes(x = mid.mid, y = 6.3, label = "Midline"),
+         size = 3, vjust = 0, hjust = 0.5, check_overlap = TRUE) +
+  geom_rect(aes(xmin = ymd("2019-11-21"), xmax = ymd("2019-12-23"), ymin = -Inf, ymax = Inf), fill = "mistyrose", alpha = 0.03) +  
+      geom_text(
+         aes(x = end.mid, y = 6.3, label = "Endline"),
+         size = 3, vjust = 0, hjust = 0.5, check_overlap = TRUE) +
+  geom_vline(aes(xintercept=ymd("2019-08-23")), color="gray40", linetype="dashed", size=1) +
+    annotate(geom = "text", x = (ymd("2019-08-23")+2), y = 13, label = "Intervention implementation", color = "gray30", size = 3, angle = 90) + 
+  geom_point(aes(colour = arm)) + 
+  scale_color_manual(labels = c("Comparison", "Intervention"), values = c("royalblue2", "maroon3")) +
+  scale_y_reverse(breaks=seq(7, 19, by=1)) + 
+  xlab("Date") +
+  ylab("Observation start time") + 
+  ggtitle("") + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"), 
+        axis.title = element_text(size = 10), 
+        plot.title = element_text(hjust = 0.5),
+        legend.title = element_blank(),
+        legend.position = "top",
+        legend.key = element_blank())
+obs.dates.arm
+
+
+# [Supplementary] Graph observation day of week/time by shop arm
+
+tl_20$time.l <- factor(tl_20$time, 
+                    levels=c(0, 1, 2),
+                    labels=c("Baseline", "Midline", "Endline"))
+
+obs.days.arm <- ggplot(tl_20, aes(x = wday, y = hour.min.st.j)) +
+  geom_point(aes(colour = arm)) + 
+  scale_color_manual(labels = c("Comparison", "Intervention"), values = c("royalblue2", "maroon3")) +
+  scale_y_reverse(breaks=seq(7, 19, by=1)) + 
+  facet_wrap(~ time.l) + 
+  xlab("Day of the week") +
+  ylab("Observation start time") + 
+  ggtitle("") + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"), 
+        axis.title = element_text(size = 10), 
+        axis.text.x = element_text(vjust = 3),
+        plot.title = element_text(hjust = 0.5),
+        legend.title = element_blank(),
+        legend.position = "none",
+        legend.key = element_blank())
+obs.days.arm
+
+
+# [Supplementary] Bar chart number of AGYW per survey
+
+## Order and label variables 
+tl_20$time <- factor(tl_20$time, 
+                    levels=c(0, 1, 2),
+                    labels=c("Baseline", "Midline", "Endline"))
+
+tl_20$arm[ which(tl_20$arm == "Intervention (Queen Club)") ] <- "Intervention"
+
+## Create categorical variable for number of AGYW
+tl_20$num.agyw.cat <- ifelse(tl_20$num.agyw == 0, "0 AGYW", 
+                          ifelse(tl_20$num.agyw >= 1 & tl_20$num.agyw <= 2, "1-2 AGYW",
+                                 ifelse(tl_20$num.agyw >= 3 & tl_20$num.agyw <= 4, "3-4 AGYW",
+                                      ifelse(tl_20$num.agyw >= 5 & tl_20$num.agyw <= 9, "5-9 AGYW",
+                                  "10+ AGYW"))))
+
+tl_20$num.agyw.cat <- factor(tl_20$num.agyw.cat,
+                     levels=c("0 AGYW", "1-2 AGYW", "3-4 AGYW", "5-9 AGYW", "10+ AGYW"))
+
+# table(tl_20$num.agyw.cat, tl_20$num.agyw, useNA = "ifany")
+
+obs.agyw.cat <- ggplot(tl_20, aes(x = arm, y = nrow(tl_20), fill = num.agyw.cat)) +
+  geom_col(position = "fill") +
+  scale_fill_brewer(palette="Reds") +
+  facet_wrap(~ time) + 
+  ylab("Proportion of observations") + 
+  xlab("") + 
+  ggtitle("") + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(), 
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"), 
+        axis.title = element_text(size = 10), 
+        plot.title = element_text(hjust = 0.5),
+        legend.title = element_blank(),
+        legend.key = element_blank())
+obs.agyw.cat
+
+```
+
+
+```{r supp_describe}
+
+# [Supplementary] Descriptives about number of SRH products/referrals observed
+
+## Two time points (midline/endline combined)
+srh2 <- tl_20 %>%
+        group_by(time2, arm) %>%
+        summarise(
+           tot.num.cond = sum(num.condom.agyw, na.rm = TRUE),
+           mean.num.cond = mean(num.condom.agyw, na.rm = TRUE),
+           sd.num.cond = sd(num.condom.agyw, na.rm = TRUE),
+           
+           tot.num.oc = sum(num.oc.agyw, na.rm = TRUE),
+           mean.num.oc = mean(num.oc.agyw, na.rm = TRUE),
+           sd.num.oc = sd(num.oc.agyw, na.rm = TRUE),
+           
+           tot.num.ec = sum(num.ec.agyw, na.rm = TRUE),
+           mean.num.ec = mean(num.ec.agyw, na.rm = TRUE),
+           sd.num.ec = sd(num.ec.agyw, na.rm = TRUE),
+           
+           tot.num.contra = sum(num.contra.agyw, na.rm = TRUE),
+           mean.num.contra = mean(num.contra.agyw, na.rm = TRUE),
+           sd.num.contra = sd(num.contra.agyw, na.rm = TRUE),
+           
+           tot.num.preg = sum(num.preg.agyw, na.rm = TRUE),
+           mean.num.preg = mean(num.preg.agyw, na.rm = TRUE),
+           sd.num.preg = sd(num.preg.agyw, na.rm = TRUE),
+           
+           tot.num.hivref = sum(num.hivref.agyw, na.rm = TRUE),
+           mean.num.hivref = mean(num.hivref.agyw, na.rm = TRUE),
+           sd.num.hivref = sd(num.hivref.agyw, na.rm = TRUE),
+                      
+           tot.num.fpref = sum(num.fpref.agyw, na.rm = TRUE),
+           mean.num.fpref = mean(num.fpref.agyw, na.rm = TRUE),
+           sd.num.fpref = sd(num.fpref.agyw, na.rm = TRUE),
+           
+           tot.num.pregref = sum(num.pregref.agyw, na.rm = TRUE),
+           mean.num.pregref = mean(num.pregref.agyw, na.rm = TRUE),
+           sd.num.pregref = sd(num.pregref.agyw, na.rm = TRUE),
+           
+           tot.num.ref = sum(num.ref.agyw, na.rm = TRUE),
+           mean.num.ref = mean(num.ref.agyw, na.rm = TRUE),
+           sd.num.ref = sd(num.ref.agyw, na.rm = TRUE),
+           
+           tot.num.hivst.rec = sum(num.hivst.rec.agyw, na.rm = TRUE),
+           mean.num.hivst.rec = mean(num.hivst.rec.agyw, na.rm = TRUE),
+           sd.num.hivst.rec = sd(num.hivst.rec.agyw, na.rm = TRUE))
+
+```
